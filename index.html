@@ -350,15 +350,28 @@
 
         // --- UTILS ---
         const getDistance = (lat1, lon1, lat2, lon2) => {
+            // Validate inputs
+            if (![lat1, lon1, lat2, lon2].every(v => Number.isFinite(Number(v)))) return null;
+            lat1 = Number(lat1); lon1 = Number(lon1); lat2 = Number(lat2); lon2 = Number(lon2);
             const R = 6371; // Earth's radius in km
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const toRad = v => v * Math.PI / 180;
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
             const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
                       Math.sin(dLon / 2) * Math.sin(dLon / 2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c;
+            return R * c; // kilometers
         };
+
+        // Format distance nicely: meters for <1km, kilometers with 1 decimal otherwise
+        function formatDistance(km) {
+            if (km === null || km === undefined || Number.isNaN(Number(km))) return '—';
+            const d = Number(km);
+            if (d < 0.05) return '<0.1 km'; // very close
+            if (d < 1) return `${Math.round(d * 1000)} m`;
+            return `${d.toFixed(1)} km`;
+        }
 
         const generateColor = (str) => {
             let hash = 0;
@@ -732,14 +745,27 @@
         }
 
         function calculateNearby(lat, lng, currentNo) {
-            const others = allProjects
+            // Use current filtered set (respecting user filters). Fall back to allProjects if empty.
+            const source = (Array.isArray(filteredProjects) && filteredProjects.length) ? filteredProjects : allProjects;
+
+            const computeDistance = (p) => {
+                const plat = parseFloat(p.Lat);
+                const plng = parseFloat(p.Lng);
+                if (!Number.isFinite(plat) || !Number.isFinite(plng)) return null;
+                return getDistance(lat, lng, plat, plng);
+            };
+
+            const others = source
                 .filter(p => p.Project !== 'VPTD' && p.No !== currentNo)
-                .map(p => ({ ...p, distance: getDistance(lat, lng, parseFloat(p.Lat), parseFloat(p.Lng)) }))
+                .map(p => ({ ...p, distance: computeDistance(p) }))
+                .filter(p => p.distance !== null && Number.isFinite(p.distance))
                 .sort((a, b) => a.distance - b.distance)
                 .slice(0, 5);
-            const office = allProjects
+
+            const office = source
                 .filter(p => p.Project === 'VPTD' && p.No !== currentNo)
-                .map(p => ({ ...p, distance: getDistance(lat, lng, parseFloat(p.Lat), parseFloat(p.Lng)) }))
+                .map(p => ({ ...p, distance: computeDistance(p) }))
+                .filter(p => p.distance !== null && Number.isFinite(p.distance))
                 .sort((a, b) => a.distance - b.distance)
                 .slice(0, 1);
             renderNearby(office, others);
@@ -784,7 +810,7 @@
                 <div class="project-card" onclick="focusOnPoint(${p.Lat}, ${p.Lng}, ${p.No})">
                     <h4>${p.CompanyName}</h4>
                     <p>${p.Address}</p>
-                    <span class="distance-badge">Cách đây ${p.distance.toFixed(1)} km</span>
+                    <span class="distance-badge">Cách đây ${formatDistance(p.distance)}</span>
                 </div>
             `;
         }
@@ -807,4 +833,3 @@
     </script>
 </body>
 </html>
-
