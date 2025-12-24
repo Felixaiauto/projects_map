@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Green Speed - Bản Đồ Dự Án</title>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.17.0/mapbox-gl.css" rel="stylesheet">
+    <link href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.1.0/mapbox-gl-geocoder.css" rel="stylesheet"/>
+    <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.1.0/mapbox-gl-geocoder.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #0056b3;
+            --secondary-color: #ffc107;
+            --text-color: #333;
+            --bg-sidebar: #ffffff;
+            --border-color: #e0e0e0;
+            --font-main: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-main);
+            color: var(--text-color);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Sidebar Styles */
+        #sidebar {
+            width: 380px;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            z-index: 2;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .search-container {
+            position: relative;
+            margin-bottom: 15px;
+        }
+
+        .mapboxgl-ctrl-geocoder {
+            width: 100% !important;
+            max-width: none !important;
+            box-shadow: none !important;
+            border: 1px solid var(--border-color);
+            border-radius: 8px !important;
+        }
+
+        .mapboxgl-ctrl-geocoder--input {
+            padding: 12px 15px 12px 40px !important;
+            height: auto !important;
+        }
+
+        .mapboxgl-ctrl-geocoder--icon-search {
+            left: 12px !important;
+            top: 13px !important;
+        }
+
+        
+
+        .filter-group {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: #f8f9fa;
+        }
+
+        .filter-item label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        .filter-item select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: white;
+            font-size: 14px;
+        }
+
+        .filter-item button#btn-vptd {
+            width: 100%;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: white;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .filter-item button#btn-vptd.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .results-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .project-card {
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .project-card:hover {
+            border-color: var(--primary-color);
+            background: #f0f7ff;
+        }
+
+        .project-card.active {
+            border-left: 4px solid var(--primary-color);
+            background: #f0f7ff;
+        }
+
+        .project-card h4 {
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .project-card p {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .distance-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            background: #eee;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-top: 5px;
+        }
+
+        /* Map Styles */
+        #map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Legend */
+        .legend {
+            position: absolute;
+            bottom: 30px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1;
+            font-size: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+        }
+
+        .legend-star {
+            color: var(--secondary-color);
+            font-size: 18px;
+        }
+
+        /* Popup Styles */
+        .mapboxgl-popup-content {
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            color: var(--text-color);
+        }
+
+        /* Make Mapbox popup close button larger and easier to click */
+        .mapboxgl-popup-close-button {
+            width: 35px;
+            height: 35px;
+            padding: 0;
+            border-radius: 6px;
+            font-size: 16px;
+            line-height: 35px;
+            background: rgba(0,0,0,0.06);
+            color: #333;
+            border: none;
+            box-shadow: none;
+            cursor: pointer;
+        }
+
+        .mapboxgl-popup-close-button:hover {
+            background: rgba(0,0,0,0.12);
+        }
+
+        .popup-header {
+            font-weight: 700;
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+        }
+
+        .popup-info {
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .popup-info span {
+            font-weight: 600;
+            color: #555;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+            #sidebar {
+                width: 100%;
+                height: 40%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <aside id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 10px;">
+                    <circle cx="16" cy="16" r="14" fill="#0056b3"/>
+                    <path d="M16 8L18.5 13.5L24.5 14.2L20 18.2L21.2 24.2L16 21L10.8 24.2L12 18.2L7.5 14.2L13.5 13.5L16 8Z" fill="#ffc107"/>
+                </svg>
+                Green Speed
+            </div>
+            <div class="search-container">
+                <div id="geocoder-container"></div>
+            </div>
+        </div>
+
+        <div class="filter-group">
+            <div class="filter-item">
+                <label>Tỉnh/Thành phố</label>
+                <select id="filter-province">
+                    <option value="">Tất cả</option>
+                </select>
+            </div>
+            <div class="filter-item">
+                <label>COO</label>
+                <select id="filter-coo">
+                    <option value="">Tất cả</option>
+                </select>
+            </div>
+            <div class="filter-item">
+                <label>Giám đốc Chi nhánh</label>
+                <select id="filter-director">
+                    <option value="">Tất cả</option>
+                </select>
+            </div>
+            <div class="filter-item">
+                <button id="btn-vptd">Văn phòng tuyển dụng</button>
+            </div>
+        </div>
+
+        <div class="results-area" id="results-area">
+            <div id="default-message" style="color: #999; text-align: center; margin-top: 40px;">
+                Chọn một điểm trên bản đồ để xem các dự án & văn phòng gần nhất
+            </div>
+            <div id="nearby-section" style="display: none;">
+                <h3 class="section-title">📍 Văn phòng gần nhất</h3>
+                <div id="nearby-office"></div>
+                <h3 class="section-title" style="margin-top: 25px;">🏢 Dự án lân cận</h3>
+                <div id="nearby-projects"></div>
+            </div>
+        </div>
+    </aside>
+
+    <main id="map-container">
+        <div id="map"></div>
+        
+       
+  </main>
+
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.17.0/mapbox-gl.js"></script>
+    <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.1.0/mapbox-gl-geocoder.min.js"></script>
+    <script>
+        // --- CONFIGURATION ---
+        mapboxgl.accessToken = 'pk.eyJ1IjoiZmVsaXhhaWF1dG8iLCJhIjoiY21qaWdpMW5sMG5keTNkcTZubXR3Zm5mYyJ9.80gqQ9tgF95abDNyLkcevA'; // Vui lòng thay bằng token của bạn
+
+        // --- STATE ---
+        let allProjects = [];
+        let filteredProjects = [];
+        let map;
+        let activePopup;
+        let vptdOnly = false;
+        let tempMarker = null;
+        const branchDirectorColors = {};
+
+        // --- UTILS ---
+        const getDistance = (lat1, lon1, lat2, lon2) => {
+            const R = 6371; // Earth's radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        };
+
+        const generateColor = (str) => {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = str.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
+            return "#" + "00000".substring(0, 6 - c.length) + c;
+        };
+
+        // --- CORE FUNCTIONS ---
+        async function init() {
+            try {
+                const response = await fetch('data/projects.json');
+                allProjects = await response.json();
+                filteredProjects = [...allProjects];
+
+                setupFilters();
+                initMap();
+            } catch (error) {
+                console.error('Error loading data:', error);
+                alert('Không thể tải dữ liệu dự án. Vui lòng kiểm tra file data/projects.json');
+            }
+        }
+
+        function setupFilters() {
+            const provinces = [...new Set(allProjects.map(p => p.Province))].sort();
+            const coos = [...new Set(allProjects.map(p => p.COO))].sort();
+            const directors = [...new Set(allProjects.map(p => p.BranchDirector))].sort();
+
+            const provinceSelect = document.getElementById('filter-province');
+            const cooSelect = document.getElementById('filter-coo');
+            const directorSelect = document.getElementById('filter-director');
+
+            provinces.forEach(p => provinceSelect.add(new Option(p, p)));
+            coos.forEach(c => cooSelect.add(new Option(c, c)));
+            const palette = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf'];
+            directors.forEach((d, i) => {
+                directorSelect.add(new Option(d, d));
+                branchDirectorColors[d] = palette[i % palette.length] || generateColor(d);
+            });
+
+            // Populate director legend
+            const legendDirectors = document.getElementById('legend-directors');
+            if (legendDirectors) {
+                legendDirectors.innerHTML = directors.map(d => `
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: ${branchDirectorColors[d]};"></div>
+                        <span>${d}</span>
+                    </div>
+                `).join('');
+            }
+
+            [provinceSelect, cooSelect, directorSelect].forEach(el => {
+                el.addEventListener('change', () => applyFilters());
+            });
+
+            // Geocoder integration
+            const geocoder = new MapboxGeocoder({
+                accessToken: mapboxgl.accessToken,
+                mapboxgl: mapboxgl,
+                placeholder: 'Tìm vị trí trên bản đồ...',
+                language: 'vi',
+                countries: 'vn',
+                types: 'address,place,postcode,poi,neighborhood,district',
+                autocomplete: true,
+                minLength: 2,
+                marker: true
+            });
+
+            geocoder.addTo('#geocoder-container');
+            // geocoder result -> create temporary marker and apply filters
+            geocoder.on('result', (e) => {
+                try {
+                    const coords = (e.result && (e.result.center || (e.result.geometry && e.result.geometry.coordinates))) || null;
+                    if (coords && map) {
+                        if (tempMarker) tempMarker.remove();
+                        tempMarker = new mapboxgl.Marker({ color: '#FF0000' })
+                            .setLngLat(coords)
+                            .addTo(map);
+                        map.flyTo({ center: coords, zoom: 14 });
+
+                        // add click handler to temp marker to show popup and nearby projects
+                        try {
+                            const el = tempMarker.getElement();
+                            el.style.cursor = 'pointer';
+                            el.addEventListener('click', () => {
+                                const lng = parseFloat(coords[0]);
+                                const lat = parseFloat(coords[1]);
+                                const feature = {
+                                    geometry: { coordinates: coords },
+                                    properties: {
+                                        CompanyName: e.result.text || (e.result.place_name || 'Vị trí tìm kiếm'),
+                                        Country: '',
+                                        CooperationYear: '',
+                                        BusinessLine: '',
+                                        Service: '',
+                                        Address: e.result.place_name || ''
+                                    }
+                                };
+                                // zoom out 2 levels (but not below zoom 3)
+                                try {
+                                    const targetZoom = Math.max(3, (map.getZoom ? map.getZoom() : 14) - 2);
+                                    map.flyTo({ center: coords, zoom: targetZoom, speed: 0.8, essential: true });
+                                } catch (err) {
+                                    map.flyTo({ center: coords, zoom: 6 });
+                                }
+                                calculateNearby(lat, lng, null);
+                            });
+                        } catch (err) {
+                            console.warn('Error attaching click to tempMarker', err);
+                        }
+                    }
+                } catch (err) {
+                    console.warn('Error creating temp marker', err);
+                }
+              applyFilters(e.result && e.result.text ? e.result.text : '');
+            });
+            const geocoderInput = document.querySelector('.mapboxgl-ctrl-geocoder--input');
+            if (geocoderInput) {
+                geocoderInput.addEventListener('input', (e) => {
+                    applyFilters(e.target.value);
+                });
+            }
+            
+            geocoder.on('clear', () => {
+                applyFilters('');
+                if (tempMarker) { tempMarker.remove(); tempMarker = null; }
+            });
+
+            // (no extra sidebar search input; geocoder input is used for searches)
+
+            // VPTD toggle button
+            const vptdBtn = document.getElementById('btn-vptd');
+            if (vptdBtn) {
+                vptdBtn.addEventListener('click', () => {
+                    vptdOnly = !vptdOnly;
+                    vptdBtn.classList.toggle('active', vptdOnly);
+                    applyFilters();
+                });
+            }
+        }
+
+        function applyFilters(searchText = '') {
+            const province = document.getElementById('filter-province').value;
+            const coo = document.getElementById('filter-coo').value;
+            const director = document.getElementById('filter-director').value;
+            
+            // determine search string: prefer explicit searchText, then sidebar search-input, then geocoder input
+            let search = '';
+            if (searchText && typeof searchText === 'string' && searchText.trim()) {
+                search = searchText.toLowerCase();
+            } else {
+                const searchInputEl = document.getElementById('search-input');
+                if (searchInputEl && searchInputEl.value.trim()) {
+                    search = searchInputEl.value.trim().toLowerCase();
+                } else {
+                    const geocoderInput = document.querySelector('.mapboxgl-ctrl-geocoder--input');
+                    search = geocoderInput ? (geocoderInput.value || '').toLowerCase() : '';
+                }
+            }
+
+            // clear any existing connection lines when filters change
+            clearConnections();
+
+            filteredProjects = allProjects.filter(p => {
+                const matchesSearch = !search || (
+                    (p.CompanyName && p.CompanyName.toLowerCase().includes(search)) ||
+                    (p.Address && p.Address.toLowerCase().includes(search)) ||
+                    (p.Province && p.Province.toLowerCase().includes(search))
+                );
+                return (!province || p.Province === province) &&
+                       (!coo || p.COO === coo) &&
+                       (!director || p.BranchDirector === director) &&
+                       (!vptdOnly || p.Project === 'VPTD') &&
+                       matchesSearch;
+            });
+
+            updateMapSource();
+        }
+
+        function initMap() {
+            map = new mapboxgl.Map({
+                container: 'map',
+                style: 'mapbox://styles/mapbox/streets-v12',
+                center: [105.8, 16.0],
+                zoom: 5,
+                projection: 'globe'
+            });
+
+            map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+            map.on('load', () => {
+                const img = new Image(32, 32);
+                img.onload = () => map.addImage('star-icon', img);
+                img.src = 'data:image/svg+xml;base64,' + btoa('<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 4L19.5 12.5L28.5 13.5L21.5 19.5L23.5 28.5L16 23.5L8.5 28.5L10.5 19.5L3.5 13.5L12.5 12.5L16 4Z" fill="#FFFF00" stroke="#b8860b" stroke-width="1"/></svg>');
+
+                map.addSource('projects', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: [] },
+                    cluster: true,
+                    clusterMaxZoom: 14,
+                    clusterRadius: 50
+                });
+
+                map.addLayer({
+                    id: 'clusters',
+                    type: 'circle',
+                    source: 'projects',
+                    filter: ['has', 'point_count'],
+                    paint: {
+                        'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 100, '#f1f075', 750, '#f28cb1'],
+                        'circle-radius': ['step', ['get', 'point_count'], 20, 100, 30, 750, 40],
+                        'circle-stroke-width': 2,
+                        'circle-stroke-color': '#fff'
+                    }
+                });
+
+                map.addLayer({
+                    id: 'cluster-count',
+                    type: 'symbol',
+                    source: 'projects',
+                    filter: ['has', 'point_count'],
+                    layout: {
+                        'text-field': '{point_count_abbreviated}',
+                        'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+                        'text-size': 12
+                    }
+                });
+
+                map.addLayer({
+                    id: 'unclustered-vptd',
+                    type: 'symbol',
+                    source: 'projects',
+                    filter: ['all', ['!has', 'point_count'], ['==',  'Project', 'VPTD']],
+                    layout: {
+                        'icon-image': 'star-icon',
+                        'icon-size': 1.2,
+                        'icon-allow-overlap': true
+                    }
+                });
+
+                map.addLayer({
+                    id: 'unclustered-points',
+                    type: 'circle',
+                    source: 'projects',
+                    filter: ['all', ['!has', 'point_count'], ['!=', 'Project', 'VPTD']],
+                    paint: {
+                        'circle-color': ['get', 'color'],
+                        'circle-radius': 6,
+                        'circle-stroke-width': 2,
+                        'circle-stroke-color': '#fff'
+                    }
+                });
+
+                // Connections source & layer (lines from clicked point to nearby projects)
+                map.addSource('connections', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: [] }
+                });
+
+                map.addLayer({
+                    id: 'connection-lines',
+                    type: 'line',
+                    source: 'connections',
+                    layout: {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    paint: {
+                        'line-color': ['get', 'color'],
+                        'line-width': 2,
+                        'line-opacity': 0.9
+                    }
+                });
+
+                updateMapSource();
+
+                map.on('click', 'clusters', (e) => {
+                    const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
+                    const clusterId = features[0].properties.cluster_id;
+                    map.getSource('projects').getClusterExpansionZoom(clusterId, (err, zoom) => {
+                        if (err) return;
+                        map.easeTo({ 
+                            center: features[0].geometry.coordinates, 
+                            zoom: zoom + 1
+                        });
+                    });
+                });
+
+                const pointLayers = ['unclustered-points', 'unclustered-vptd'];
+                map.on('click', (e) => {
+                    const features = map.queryRenderedFeatures(e.point, { layers: pointLayers });
+                    if (features.length) {
+                        const feature = features[0];
+                        const clickedPoint = feature.properties;
+                        const lat = parseFloat(clickedPoint.Lat);
+                        const lng = parseFloat(clickedPoint.Lng);
+                        
+                        if (activePopup) activePopup.remove();
+                        
+                        map.flyTo({ 
+                            center: [lng, lat], 
+                            zoom: 14, 
+                            speed: 0.8,
+                            essential: true 
+                        });
+
+                        setTimeout(() => {
+                            showPopup(feature);
+                            calculateNearby(lat, lng, clickedPoint.No);
+                        }, 100);
+                    }
+                });
+
+                map.on('mouseenter', 'unclustered-points', () => map.getCanvas().style.cursor = 'pointer');
+                map.on('mouseleave', 'unclustered-points', () => map.getCanvas().style.cursor = '');
+                map.on('mouseenter', 'unclustered-vptd', () => map.getCanvas().style.cursor = 'pointer');
+                map.on('mouseleave', 'unclustered-vptd', () => map.getCanvas().style.cursor = '');
+            });
+        }
+
+        function updateMapSource() {
+            const geojson = {
+                type: 'FeatureCollection',
+                features: filteredProjects.map(p => ({
+                    type: 'Feature',
+                    geometry: { type: 'Point', coordinates: [parseFloat(p.Lng), parseFloat(p.Lat)] },
+                    properties: { ...p, color: branchDirectorColors[p.BranchDirector] || '#0056b3' }
+                }))
+            };
+            if (map && map.getSource('projects')) {
+                map.getSource('projects').setData(geojson);
+            }
+        }
+
+        function showPopup(feature) {
+            const p = feature.properties;
+            const coordinates = feature.geometry.coordinates;
+            const html = `
+                <div style="min-width: 200px;">
+                    <div class="popup-header" style="border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 8px;">
+                        ${p.CompanyName}
+                    </div>
+                    <div class="popup-info">
+                        <p><span>🌏 Quốc gia:</span> ${p.Country}</p>
+                        <p><span>📅 Năm hợp tác:</span> ${p.CooperationYear}</p>
+                        <p><span>💼 Lĩnh vực:</span> ${p.BusinessLine}</p>
+                        <p><span>🛠️ Dịch vụ cung cấp:</span> ${p.Service}</p>
+                        <p><span>🏠 Địa chỉ:</span> ${p.Address}</p>
+                    </div>
+                </div>
+            `;
+            if (activePopup) activePopup.remove();
+            activePopup = new mapboxgl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '300px', offset: 15 })
+                .setLngLat(coordinates)
+                .setHTML(html)
+                .addTo(map);
+        }
+
+        function calculateNearby(lat, lng, currentNo) {
+            const others = allProjects
+                .filter(p => p.Project !== 'VPTD' && p.No !== currentNo)
+                .map(p => ({ ...p, distance: getDistance(lat, lng, parseFloat(p.Lat), parseFloat(p.Lng)) }))
+                .sort((a, b) => a.distance - b.distance)
+                .slice(0, 5);
+            const office = allProjects
+                .filter(p => p.Project === 'VPTD' && p.No !== currentNo)
+                .map(p => ({ ...p, distance: getDistance(lat, lng, parseFloat(p.Lat), parseFloat(p.Lng)) }))
+                .sort((a, b) => a.distance - b.distance)
+                .slice(0, 1);
+            renderNearby(office, others);
+            updateConnections(lat, lng, [...office, ...others]);
+        }
+
+        function updateConnections(lat, lng, targets) {
+            const features = (targets || []).map(t => ({
+                type: 'Feature',
+                geometry: {
+                    type: 'LineString',
+                    coordinates: [[parseFloat(lng), parseFloat(lat)], [parseFloat(t.Lng), parseFloat(t.Lat)]]
+                },
+                properties: {
+                    color: branchDirectorColors[t.BranchDirector] || '#888'
+                }
+            }));
+
+            const geojson = { type: 'FeatureCollection', features };
+            if (map && map.getSource && map.getSource('connections')) {
+                map.getSource('connections').setData(geojson);
+            }
+        }
+
+        function clearConnections() {
+            if (map && map.getSource && map.getSource('connections')) {
+                map.getSource('connections').setData({ type: 'FeatureCollection', features: [] });
+            }
+        }
+
+        function renderNearby(offices, projects) {
+            document.getElementById('default-message').style.display = 'none';
+            document.getElementById('nearby-section').style.display = 'block';
+            const officeDiv = document.getElementById('nearby-office');
+            const projectsDiv = document.getElementById('nearby-projects');
+            officeDiv.innerHTML = offices.length ? offices.map(o => createProjectCard(o)).join('') : '<p style="font-size:12px; color:#999">Không tìm thấy văn phòng khác</p>';
+            projectsDiv.innerHTML = projects.length ? projects.map(p => createProjectCard(p)).join('') : '<p style="font-size:12px; color:#999">Không có dự án lân cận</p>';
+        }
+
+        function createProjectCard(p) {
+            return `
+                <div class="project-card" onclick="focusOnPoint(${p.Lat}, ${p.Lng}, ${p.No})">
+                    <h4>${p.CompanyName}</h4>
+                    <p>${p.Address}</p>
+                    <span class="distance-badge">Cách đây ${p.distance.toFixed(1)} km</span>
+                </div>
+            `;
+        }
+
+        function focusOnPoint(lat, lng, no) {
+            const lLat = parseFloat(lat);
+            const lLng = parseFloat(lng);
+            map.flyTo({ center: [lLng, lLat], zoom: 14 });
+            const project = allProjects.find(p => p.No === no);
+            if (project) {
+                const feature = { geometry: { coordinates: [lLng, lLat] }, properties: project };
+                setTimeout(() => {
+                    showPopup(feature);
+                    calculateNearby(lLat, lLng, no);
+                }, 100);
+            }
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
