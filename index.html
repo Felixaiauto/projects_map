@@ -54,6 +54,14 @@
             margin-bottom: 15px;
             display: flex;
             align-items: center;
+            justify-content: center;
+        }
+        .logo img {
+            width: 200px;
+            height: 90px;
+            margin-right: 0;
+            border-radius: 0;
+            object-fit: contain;
         }
 
         .search-container {
@@ -221,10 +229,17 @@
 
         /* Popup Styles */
         .mapboxgl-popup-content {
-            padding: 15px;
+            padding: 16px;
             border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-            color: var(--text-color);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+            color: #222;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 14px;
+            font-weight: 400;
+            letter-spacing: 0.01em;
+            -webkit-font-smoothing: subpixel-antialiased;
+            -moz-osx-font-smoothing: auto;
+            text-rendering: optimizeLegibility;
         }
 
         /* Make Mapbox popup close button larger and easier to click */
@@ -233,7 +248,7 @@
             height: 35px;
             padding: 0;
             border-radius: 6px;
-            font-size: 16px;
+            font-size: 18px;
             line-height: 35px;
             background: rgba(0,0,0,0.06);
             color: #333;
@@ -248,19 +263,25 @@
 
         .popup-header {
             font-weight: 700;
-            font-size: 16px;
+            font-size: 17px;
             margin-bottom: 10px;
             color: var(--primary-color);
+            letter-spacing: -0.01em;
         }
 
         .popup-info {
-            font-size: 13px;
-            line-height: 1.6;
+            font-size: 14px;
+            line-height: 1.7;
+            color: #333;
+        }
+
+        .popup-info p {
+            margin: 6px 0;
         }
 
         .popup-info span {
             font-weight: 600;
-            color: #555;
+            color: #111;
         }
 
         @media (max-width: 768px) {
@@ -278,11 +299,7 @@
     <aside id="sidebar">
         <div class="sidebar-header">
             <div class="logo">
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 10px;">
-                    <circle cx="16" cy="16" r="14" fill="#0056b3"/>
-                    <path d="M16 8L18.5 13.5L24.5 14.2L20 18.2L21.2 24.2L16 21L10.8 24.2L12 18.2L7.5 14.2L13.5 13.5L16 8Z" fill="#ffc107"/>
-                </svg>
-                Green Speed
+                <img src="logo.png" alt="Green Speed logo">
             </div>
             <div class="search-container">
                 <div id="geocoder-container"></div>
@@ -363,6 +380,17 @@
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
             return R * c; // kilometers
         };
+
+        // Robust coordinate parser to handle numbers and locale strings (e.g., "10,7626")
+        function parseCoord(val) {
+            if (typeof val === 'number' && Number.isFinite(val)) return val;
+            if (typeof val === 'string') {
+                const s = val.trim().replace(/,/g, '.');
+                const n = Number(s);
+                return Number.isFinite(n) ? n : null;
+            }
+            return null;
+        }
 
         // Format distance nicely: meters for <1km, kilometers with 1 decimal otherwise
         function formatDistance(km) {
@@ -491,7 +519,8 @@
                                 } catch (err) {
                                     map.flyTo({ center: coords, zoom: 6 });
                                 }
-                                calculateNearby(lat, lng, null);
+                                // Use allProjects here so nearby search includes VPTD even if filters are active
+                                calculateNearby(lat, lng, null, true);
                             });
                         } catch (err) {
                             console.warn('Error attaching click to tempMarker', err);
@@ -621,7 +650,7 @@
                     filter: ['all', ['!has', 'point_count'], ['==',  'Project', 'VPTD']],
                     layout: {
                         'icon-image': 'star-icon',
-                        'icon-size': 1.2,
+                        'icon-size': ['interpolate', ['linear'], ['zoom'], 5, 0.9, 10, 1.2, 13, 1.6, 16, 2.2],
                         'icon-allow-overlap': true
                     }
                 });
@@ -633,7 +662,7 @@
                     filter: ['all', ['!has', 'point_count'], ['!=', 'Project', 'VPTD']],
                     paint: {
                         'circle-color': ['get', 'color'],
-                        'circle-radius': 6,
+                        'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 4, 10, 6, 13, 9, 16, 13],
                         'circle-stroke-width': 2,
                         'circle-stroke-color': '#fff'
                     }
@@ -660,6 +689,39 @@
                     }
                 });
 
+                // Nearby points source & layers (for showing VPTD and projects near clicked point)
+                map.addSource('nearby-points', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: [] }
+                });
+
+                // Layer for nearby VPTD (star icon)
+                map.addLayer({
+                    id: 'nearby-vptd',
+                    type: 'symbol',
+                    source: 'nearby-points',
+                    filter: ['==', 'Project', 'VPTD'],
+                    layout: {
+                        'icon-image': 'star-icon',
+                        'icon-size': ['interpolate', ['linear'], ['zoom'], 5, 0.9, 10, 1.2, 13, 1.6, 16, 2.2],
+                        'icon-allow-overlap': true
+                    }
+                });
+
+                // Layer for nearby projects (circle)
+                map.addLayer({
+                    id: 'nearby-projects',
+                    type: 'circle',
+                    source: 'nearby-points',
+                    filter: ['!=', 'Project', 'VPTD'],
+                    paint: {
+                        'circle-color': ['get', 'color'],
+                        'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 4, 10, 6, 13, 9, 16, 13],
+                        'circle-stroke-width': 2,
+                        'circle-stroke-color': '#fff'
+                    }
+                });
+
                 updateMapSource();
 
                 map.on('click', 'clusters', (e) => {
@@ -676,27 +738,44 @@
 
                 const pointLayers = ['unclustered-points', 'unclustered-vptd'];
                 map.on('click', (e) => {
-                    const features = map.queryRenderedFeatures(e.point, { layers: pointLayers });
-                    if (features.length) {
-                        const feature = features[0];
-                        const clickedPoint = feature.properties;
-                        const lat = parseFloat(clickedPoint.Lat);
-                        const lng = parseFloat(clickedPoint.Lng);
-                        
-                        if (activePopup) activePopup.remove();
-                        
-                        map.flyTo({ 
-                            center: [lng, lat], 
-                            zoom: 14, 
-                            speed: 0.8,
-                            essential: true 
-                        });
+                    const features = map.queryRenderedFeatures(
+                        [[e.point.x - 5, e.point.y - 5], [e.point.x + 5, e.point.y + 5]],
+                        { layers: pointLayers }
+                    );
+                    if (!features.length) return;
 
-                        setTimeout(() => {
-                            showPopup(feature);
-                            calculateNearby(lat, lng, clickedPoint.No);
-                        }, 100);
-                    }
+                    const primary = features[0];
+                    const coords = primary.geometry.coordinates.slice();
+                    const lat = parseCoord(primary.properties.Lat);
+                    const lng = parseCoord(primary.properties.Lng);
+
+                    // Collect all features exactly at this coordinate
+                    const sameSpot = features.filter(f => {
+                        const [flng, flat] = f.geometry.coordinates;
+                        return Math.abs(flng - coords[0]) < 1e-9 && Math.abs(flat - coords[1]) < 1e-9;
+                    });
+
+                    if (activePopup) activePopup.remove();
+
+                    map.flyTo({ 
+                        center: coords, 
+                        zoom: 14, 
+                        speed: 0.8,
+                        essential: true 
+                    });
+
+                    setTimeout(() => {
+                        if (sameSpot.length > 1) {
+                            showMultiPopup(sameSpot, coords);
+                        } else {
+                            showPopup(primary);
+                        }
+                        try {
+                            console.info('Clicked coords:', { lat, lng, coords });
+                            console.info('Google Maps link:', `https://www.google.com/maps?q=${lat},${lng}`);
+                        } catch (e) {}
+                        calculateNearby(lat, lng, primary.properties.No);
+                    }, 100);
                 });
 
                 map.on('mouseenter', 'unclustered-points', () => map.getCanvas().style.cursor = 'pointer');
@@ -706,15 +785,33 @@
             });
         }
 
+        // Ensure the built-in star icon exists on the map (uses embedded SVG data URI)
+        function ensureStarIcon() {
+            try {
+                if (!map) return;
+                if (map.hasImage && !map.hasImage('star-icon')) {
+                    const img = new Image(32, 32);
+                    img.onload = () => { try { if (!map.hasImage('star-icon')) map.addImage('star-icon', img); } catch (e) { /* ignore */ } };
+                    img.src = 'data:image/svg+xml;base64,' + btoa('<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 4L19.5 12.5L28.5 13.5L21.5 19.5L23.5 28.5L16 23.5L8.5 28.5L10.5 19.5L3.5 13.5L12.5 12.5L16 4Z" fill="#FFFF00" stroke="#b8860b" stroke-width="1"/></svg>');
+                }
+            } catch (err) { /* swallow */ }
+        }
+
         function updateMapSource() {
-            const geojson = {
-                type: 'FeatureCollection',
-                features: filteredProjects.map(p => ({
+            // Ensure the star icon is available before updating data
+            try { ensureStarIcon(); } catch (e) { /* ignore */ }
+            const features = [];
+            for (const p of filteredProjects) {
+                const lng = parseCoord(p.Lng);
+                const lat = parseCoord(p.Lat);
+                if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
+                features.push({
                     type: 'Feature',
-                    geometry: { type: 'Point', coordinates: [parseFloat(p.Lng), parseFloat(p.Lat)] },
+                    geometry: { type: 'Point', coordinates: [lng, lat] },
                     properties: { ...p, color: branchDirectorColors[p.BranchDirector] || '#0056b3' }
-                }))
-            };
+                });
+            }
+            const geojson = { type: 'FeatureCollection', features };
             if (map && map.getSource('projects')) {
                 map.getSource('projects').setData(geojson);
             }
@@ -744,13 +841,43 @@
                 .addTo(map);
         }
 
-        function calculateNearby(lat, lng, currentNo) {
-            // Use current filtered set (respecting user filters). Fall back to allProjects if empty.
-            const source = (Array.isArray(filteredProjects) && filteredProjects.length) ? filteredProjects : allProjects;
+        // Show a consolidated popup when multiple projects share the same Lat/Lng
+        function showMultiPopup(features, coordinates) {
+            const cards = features.map(f => {
+                const p = f.properties;
+                return `
+                    <div class="project-card" onclick="focusOnPoint(${p.Lat}, ${p.Lng}, ${p.No})">
+                        <h4>${p.CompanyName}</h4>
+                        <p>${p.Address || ''}</p>
+                        <p style="font-size:12px; color:#666;">${p.BusinessLine || ''}</p>
+                    </div>
+                `;
+            }).join('');
+
+            const html = `
+                <div style="min-width: 240px;">
+                    <div class="popup-header" style="border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 8px;">
+                        ${features.length} dự án tại cùng vị trí
+                    </div>
+                    <div class="popup-info">${cards}</div>
+                </div>
+            `;
+
+            if (activePopup) activePopup.remove();
+            activePopup = new mapboxgl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '320px', offset: 15 })
+                .setLngLat(coordinates)
+                .setHTML(html)
+                .addTo(map);
+        }
+
+        function calculateNearby(lat, lng, currentNo, useAll = false) {
+            // If useAll is true, search across allProjects regardless of active filters.
+            // Otherwise prefer filteredProjects and fall back to allProjects if empty.
+            const source = (useAll || !(Array.isArray(filteredProjects) && filteredProjects.length)) ? allProjects : filteredProjects;
 
             const computeDistance = (p) => {
-                const plat = parseFloat(p.Lat);
-                const plng = parseFloat(p.Lng);
+                const plat = parseCoord(p.Lat);
+                const plng = parseCoord(p.Lng);
                 if (!Number.isFinite(plat) || !Number.isFinite(plng)) return null;
                 return getDistance(lat, lng, plat, plng);
             };
@@ -773,26 +900,49 @@
         }
 
         function updateConnections(lat, lng, targets) {
-            const features = (targets || []).map(t => ({
+            // Update connection lines
+            const lineFeatures = (targets || []).map(t => ({
                 type: 'Feature',
                 geometry: {
                     type: 'LineString',
-                    coordinates: [[parseFloat(lng), parseFloat(lat)], [parseFloat(t.Lng), parseFloat(t.Lat)]]
+                    coordinates: [[parseCoord(lng), parseCoord(lat)], [parseCoord(t.Lng), parseCoord(t.Lat)]]
                 },
                 properties: {
                     color: branchDirectorColors[t.BranchDirector] || '#888'
                 }
             }));
 
-            const geojson = { type: 'FeatureCollection', features };
+            const linesGeojson = { type: 'FeatureCollection', features: lineFeatures };
             if (map && map.getSource && map.getSource('connections')) {
-                map.getSource('connections').setData(geojson);
+                map.getSource('connections').setData(linesGeojson);
+            }
+
+            // Update nearby points (for showing icons when search filters hide main source)
+            const pointFeatures = (targets || []).map(t => ({
+                type: 'Feature',
+                geometry: {
+                    type: 'Point',
+                    coordinates: [parseCoord(t.Lng), parseCoord(t.Lat)]
+                },
+                properties: {
+                    ...t,
+                    color: branchDirectorColors[t.BranchDirector] || '#0056b3'
+                }
+            }));
+
+            const pointsGeojson = { type: 'FeatureCollection', features: pointFeatures };
+            if (map && map.getSource && map.getSource('nearby-points')) {
+                map.getSource('nearby-points').setData(pointsGeojson);
             }
         }
 
         function clearConnections() {
             if (map && map.getSource && map.getSource('connections')) {
                 map.getSource('connections').setData({ type: 'FeatureCollection', features: [] });
+            }
+            // Also clear nearby points
+            if (map && map.getSource && map.getSource('nearby-points')) {
+                map.getSource('nearby-points').setData({ type: 'FeatureCollection', features: [] });
             }
         }
 
@@ -816,8 +966,8 @@
         }
 
         function focusOnPoint(lat, lng, no) {
-            const lLat = parseFloat(lat);
-            const lLng = parseFloat(lng);
+            const lLat = parseCoord(lat);
+            const lLng = parseCoord(lng);
             map.flyTo({ center: [lLng, lLat], zoom: 14 });
             const project = allProjects.find(p => p.No === no);
             if (project) {
