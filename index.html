@@ -1065,7 +1065,7 @@
                     const projectName = (p.Project || '').toLowerCase();
                     const companyName = (p.CompanyName || '').toLowerCase();
                     const address = (p.Address || '').toLowerCase();
-                    const cda = (p['Projects Owner'] || '').toLowerCase();
+                    const cda = (p["Chủ dự án"] || '').toLowerCase();
                     return projectName.includes(query) ||
                         companyName.includes(query) ||
                         address.includes(query) ||
@@ -1080,7 +1080,7 @@
                             data-lat="${p.Lat}" data-lng="${p.Lng}" data-project='${JSON.stringify(p).replace(/'/g, "\\'")}'>
                             <div class="project-suggestion-name">${p.Project}</div>
                             <div class="project-suggestion-company">${p.CompanyName || ''}</div>
-                            <div class="project-suggestion-info">${p.Province || ''} • CDA: ${p['Projects Owner'] || ''}</div>
+                            <div class="project-suggestion-info">${p.Province || ''} • CDA: ${p["Chủ dự án"] || ''}</div>
                         </div>
                     `).join('');
                 }
@@ -1153,12 +1153,11 @@
                                 <p><span>🌏 Quốc gia:</span> ${project.Country || '—'}</p>
                                 <p><span>📅 Năm hợp tác:</span> ${project.CooperationYear || '—'}</p>
                                 <p><span>💼 Lĩnh vực:</span> ${project.BusinessLine || '—'}</p>
-                                <p><span>🏭 Ngành:</span> ${project.Industry || 'N/A'}</p>
                                 <p><span>🛠️ Dịch vụ cung cấp:</span> ${project.Service || '—'}</p>
                                 <p><span>🏠 Địa chỉ:</span> ${project.Address || '—'}</p>
-                                <p><span>💰 Lương TB:</span> ${project.AverageSalary || 'N/A'}</p>
-                                <p><span>👥 Số NV:</span> ${project.Headcount || 'N/A'}</p>
-                                <p><span>👤 CDA:</span> ${project['Projects Owner'] || 'N/A'}</p>
+                                <p><span>💰 Lương TB:</span> ${project["Lương bình quân"] || 'N/A'}</p>
+                                <p><span>👥 Số NV:</span> ${project["Số lượng lao động"] || 'N/A'}</p>
+                                <p><span>👤 CDA:</span> ${project["Chủ dự án"] || 'N/A'}</p>
                                 <p><span>👔 GĐCN:</span> ${project.BranchDirector || 'N/A'}</p>
                                 <p><span>📊 COO:</span> ${project.COO || 'N/A'}</p>
                             </div>
@@ -1334,7 +1333,7 @@
             }
             const filtered = allProjects.filter(p => selectedProvinces.includes(p.Province));
             const totalProjects = filtered.length;
-            const totalHeadcount = filtered.reduce((sum, p) => sum + (parseInt(p.Headcount) || 0), 0);
+            const totalHeadcount = filtered.reduce((sum, p) => sum + (parseInt(p["Số lượng lao động"]) || 0), 0);
 
             // Group by Director
             const directorStats = {};
@@ -1344,7 +1343,7 @@
                     directorStats[d] = { name: d, count: 0, headcount: 0, color: branchDirectorColors[d] || '#000' };
                 }
                 directorStats[d].count++;
-                directorStats[d].headcount += (parseInt(p.Headcount) || 0);
+                directorStats[d].headcount += (parseInt(p["Số lượng lao động"]) || 0);
             });
 
             // Group by COO
@@ -1355,7 +1354,7 @@
                     cooStats[c] = { name: c, count: 0, headcount: 0 };
                 }
                 cooStats[c].count++;
-                cooStats[c].headcount += (parseInt(p.Headcount) || 0);
+                cooStats[c].headcount += (parseInt(p["Số lượng lao động"]) || 0);
             });
 
             const directorHTML = Object.values(directorStats).sort((a, b) => b.count - a.count).map(s =>
@@ -1392,7 +1391,7 @@
             // Get projects for selected COOs
             const filtered = allProjects.filter(p => selectedCoos.includes(p.COO));
             const totalProjects = filtered.length;
-            const totalHeadcount = filtered.reduce((sum, p) => sum + (parseInt(p.Headcount) || 0), 0);
+            const totalHeadcount = filtered.reduce((sum, p) => sum + (parseInt(p["Số lượng lao động"]) || 0), 0);
 
             // Group by Director
             const directorStats = {};
@@ -1402,7 +1401,7 @@
                     directorStats[d] = { name: d, count: 0, headcount: 0, color: branchDirectorColors[d] || '#000' };
                 }
                 directorStats[d].count++;
-                directorStats[d].headcount += (parseInt(p.Headcount) || 0);
+                directorStats[d].headcount += (parseInt(p["Số lượng lao động"]) || 0);
             });
 
             const directorHTML = Object.values(directorStats).sort((a, b) => b.count - a.count).map(s =>
@@ -1442,17 +1441,17 @@
             // Get projects for selected Directors
             const filtered = allProjects.filter(p => selectedDirectors.includes(p.BranchDirector));
             const totalProjects = filtered.length;
-            const totalHeadcount = filtered.reduce((sum, p) => sum + (parseInt(p.Headcount) || 0), 0);
+            const totalHeadcount = filtered.reduce((sum, p) => sum + (parseInt(p["Số lượng lao động"]) || 0), 0);
 
             // Group by Projects Owner (CDA)
             const ownerStats = {};
             filtered.forEach(p => {
-                const o = p['Projects Owner'] || 'Chưa XĐ';
+                const o = p["Chủ dự án"] || 'Chưa XĐ';
                 if (!ownerStats[o]) {
                     ownerStats[o] = { name: o, count: 0, headcount: 0 };
                 }
                 ownerStats[o].count++;
-                ownerStats[o].headcount += (parseInt(p.Headcount) || 0);
+                ownerStats[o].headcount += (parseInt(p["Số lượng lao động"]) || 0);
             });
 
             const ownerHTML = Object.values(ownerStats).sort((a, b) => b.count - a.count).map(s =>
@@ -1583,7 +1582,7 @@
                     (p.CompanyName && p.CompanyName.toLowerCase().includes(search)) ||
                     (p.Address && p.Address.toLowerCase().includes(search)) ||
                     (p.Province && p.Province.toLowerCase().includes(search)) ||
-                    (p['Projects Owner'] && p['Projects Owner'].toLowerCase().includes(search))
+                    (p["Chủ dự án"] && p["Chủ dự án"].toLowerCase().includes(search))
                 );
                 const matchesProvince = selectedProvinces.length === 0 || selectedProvinces.includes(p.Province);
                 const matchesCoo = selectedCoos.length === 0 || selectedCoos.includes(p.COO);
@@ -1858,12 +1857,11 @@
                         <p><span>🌏 Quốc gia:</span> ${p.Country}</p>
                         <p><span>📅 Năm hợp tác:</span> ${p.CooperationYear}</p>
                         <p><span>💼 Lĩnh vực:</span> ${p.BusinessLine}</p>
-                        <p><span>🏭 Ngành:</span> ${p.Industry || 'N/A'}</p>
                         <p><span>🏠 Địa chỉ:</span> ${p.Address}</p>
                         <p><span>🛠️ Dịch vụ cung cấp:</span> ${p.Service}</p>
-                        <p><span>💰 Lương TB:</span> ${p.AverageSalary || 'N/A'}</p>
-                        <p><span>👥 Số NV:</span> ${p.Headcount || 'N/A'}</p>
-                        <p><span>👤 CDA:</span> ${p['Projects Owner'] || 'N/A'}</p>
+                        <p><span>💰 Lương TB:</span> ${p["Lương bình quân"] || 'N/A'}</p>
+                        <p><span>👥 Số NV:</span> ${p["Số lượng lao động"] || 'N/A'}</p>
+                        <p><span>👤 CDA:</span> ${p["Chủ dự án"] || 'N/A'}</p>
                         <p><span>👔 GĐCN:</span> ${p.BranchDirector || 'N/A'}</p>
                         <p><span>📊 COO:</span> ${p.COO || 'N/A'}</p>
                     </div>
@@ -1884,8 +1882,8 @@
                     <div class="project-card" onclick="focusOnPoint(${p.Lat}, ${p.Lng}, ${p.No})">
                         <h4>${p.CompanyName}</h4>
                         <p>${p.Address || ''}</p>
-                        <p style="font-size:12px; color:#666;">${p.BusinessLine || ''} ${p.Industry ? '- ' + p.Industry : ''}</p>
-                        <p style="font-size:11px; color:#888;">👤 ${p['Projects Owner'] || 'N/A'} | 👥 ${p.Headcount || 'N/A'}</p>
+                        <p style="font-size:12px; color:#666;">${p.BusinessLine || ''}</p>
+                        <p style="font-size:11px; color:#888;">👤 ${p["Chủ dự án"] || 'N/A'} | 👥 ${p["Số lượng lao động"] || 'N/A'}</p>
                     </div>
                 `;
             }).join('');
@@ -2013,7 +2011,7 @@
 
             // 1. Calculate Totals
             const totalProjects = projects.length;
-            const totalHeadcount = projects.reduce((sum, p) => sum + (parseInt(p.Headcount) || 0), 0);
+            const totalHeadcount = projects.reduce((sum, p) => sum + (parseInt(p["Số lượng lao động"]) || 0), 0);
 
             // Update Overview
             document.getElementById('rs-total-projects').textContent = totalProjects.toLocaleString();
@@ -2034,9 +2032,9 @@
             const cooStats = {};
 
             projects.forEach(p => {
-                const hc = parseInt(p.Headcount) || 0;
+                const hc = parseInt(p["Số lượng lao động"]) || 0;
                 // Determine key for the second chart/list
-                const keyName = isDirectorSelected ? (p['Projects Owner'] || 'Chưa xác định') : (p.BranchDirector || 'Chưa xác định');
+                const keyName = isDirectorSelected ? (p["Chủ dự án"] || 'Chưa xác định') : (p.BranchDirector || 'Chưa xác định');
                 const cName = p.COO || 'Chưa xác định';
 
                 // Director / CDA Stats
@@ -2072,7 +2070,7 @@
             const projectsSorted = [...projects]
                 .map(p => ({
                     name: p.Project,
-                    headcount: parseInt(p.Headcount) || 0
+                    headcount: parseInt(p["Số lượng lao động"]) || 0
                 }))
                 .sort((a, b) => b.headcount - a.headcount)
                 .slice(0, 5);
@@ -2243,4 +2241,3 @@
 </body>
 
 </html>
-
