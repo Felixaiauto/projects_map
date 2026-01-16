@@ -978,7 +978,14 @@
             try {
                 const response = await fetch(PROJECTS_URL);
                 if (!response.ok) throw new Error('Fetch failed: ' + response.status);
-                allProjects = await response.json();
+                const rawProjects = await response.json();
+
+                // Add unique ID 'No' to each project
+                allProjects = rawProjects.map((p, index) => ({
+                    ...p,
+                    No: p.No !== undefined ? p.No : index + 1 // Use existing No or generate one
+                }));
+
                 console.info('Loaded projects from:', PROJECTS_URL);
 
                 filteredProjects = [...allProjects];
@@ -1905,9 +1912,9 @@
         }
 
         function calculateNearby(lat, lng, currentNo, useAll = false) {
-            // If useAll is true, search across allProjects regardless of active filters.
-            // Otherwise prefer filteredProjects and fall back to allProjects if empty.
-            const source = (useAll || !(Array.isArray(filteredProjects) && filteredProjects.length)) ? allProjects : filteredProjects;
+            // ALWAYS use allProjects for calculating nearby items (both offices and other projects)
+            // This ensures we find the absolute nearest locations regardless of currently active view filters.
+            const source = allProjects;
 
             const computeDistance = (p) => {
                 const plat = parseCoord(p.Lat);
